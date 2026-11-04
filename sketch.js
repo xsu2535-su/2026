@@ -58,7 +58,8 @@ let coins = [];           // 棒球清單
 let particles = [];       // 特效粒子（塵土、二段跳光圈）
 let popups = [];          // 飄出來的文字（SAFE!、+10…）
 let score = 0;            // 分數
-let showHints = true;     // 是否顯示操作提示
+let showHints = true;     // 是否顯示壘包旁的「滑到這裡」提示
+let showPanel = true;     // 是否顯示左上角操作說明面板（第一次按方向鍵或空白鍵後會自動收起）
 
 // loadImg() 載入單張圖片，並記錄成功或失敗
 function loadImg(path) {
@@ -91,6 +92,11 @@ function setup() {
   textFont('sans-serif');                  // 文字使用系統無襯線字型（可顯示中文）
   loadAll();                               // 開始載入圖片
   resetGame();                             // 初始化（或重新開始）遊戲
+}
+
+// heightScale() 畫面比較矮時（例如瀏覽器放大），把棒球高度等比例縮小，避免跑出畫面上方
+function heightScale() {
+  return min(1, (groundY - 60) / (COIN_HIGH + 40)); // 畫面夠高就維持 1，不夠高就縮小
 }
 
 // resetGame() 把角色、壘包、棒球、分數都放回初始狀態
@@ -126,7 +132,9 @@ function resetGame() {
 function keyPressed() {
   if (keyCode === DOWN_ARROW) slideRequest = true;                // 下方向鍵 → 要滑壘
   if (keyCode === UP_ARROW || keyCode === 32) jumpRequest = true; // 上方向鍵或空白鍵 → 要跳躍
-  if (key === 'h' || key === 'H') showHints = !showHints;         // H → 顯示／隱藏操作提示
+  if (keyCode === LEFT_ARROW || keyCode === RIGHT_ARROW || keyCode === UP_ARROW ||
+      keyCode === DOWN_ARROW || keyCode === 32) showPanel = false; // 開始玩就自動收起說明，避免擋住棒球
+  if (key === 'h' || key === 'H') showPanel = !showPanel;         // H → 顯示／隱藏操作說明
   if (key === 'r' || key === 'R') resetGame();                    // R → 重新開始
 }
 
@@ -222,7 +230,7 @@ function draw() {
   // ----- 6. 撿棒球 -----
   for (let c of coins) {                              // 逐一檢查每顆棒球
     if (c.taken) continue;                            // 已經撿過的就跳過
-    let cy = groundY - c.h;                           // 棒球的 y 座標
+    let cy = groundY - c.h * heightScale();           // 棒球的 y 座標（依畫面高度縮放）
     if (dist(x, y - 140, c.x, cy) < COIN_HIT) {       // 角色身體中心離棒球夠近
       c.taken = true;                                 // 標記為已撿走
       score += 10;                                    // 加 10 分
@@ -392,7 +400,7 @@ function drawScene(camX) {
     if (c.taken) continue;                 // 已撿走的不畫
     let sx = c.x - camX;                   // 轉成畫面上的 x
     if (sx < -50 || sx > width + 50) continue; // 在畫面外就不用畫
-    let sy = groundY - c.h + sin(frameCount * 0.1 + i) * 6; // y 座標加上上下浮動
+    let sy = groundY - c.h * heightScale() + sin(frameCount * 0.1 + i) * 6; // y 座標加上上下浮動（依畫面高度縮放）
     fill(255);                             // 棒球白色
     stroke(120);                           // 灰色外框
     strokeWeight(2);                       // 外框粗細
@@ -469,7 +477,7 @@ function drawHUD() {
   }
 
   // ----- 左上角：操作提示 -----
-  if (!showHints) {                                     // 如果提示被隱藏
+  if (!showPanel) {                                     // 如果說明面板被隱藏
     fill('#3e2723');                                    // 文字顏色
     textAlign(LEFT, CENTER);                            // 文字靠左
     textSize(14);                                       // 文字大小
