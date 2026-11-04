@@ -5,6 +5,11 @@ let runImg;          // 跑步（RUN）圖片
 let jumpImg;         // 跳躍（JUMP）圖片
 let slideImgs = [];  // 滑壘（Slide base）的 5 張獨立圖片（0.png ~ 4.png）
 
+// ===== 圖片載入狀態追蹤 =====
+let totalToLoad = 0;  // 總共要載入幾張圖片
+let loadedCount = 0;  // 已處理完（成功或失敗）的圖片數
+let missing = [];     // 載入失敗的檔案路徑
+
 // ===== 每張圖片內的影格數量 =====
 const STOP_FRAMES = 2; // STOP 圖片共 2 張
 const WALK_FRAMES = 4; // WALK 圖片共 4 張
@@ -55,15 +60,26 @@ let popups = [];          // 飄出來的文字（SAFE!、+10…）
 let score = 0;            // 分數
 let showHints = true;     // 是否顯示操作提示
 
-// preload() 會在 setup() 之前執行，用來先載入圖片
-function preload() {
-  stopImg = loadImage('1/STOP/STOP.png'); // 載入 STOP 圖片
-  walkImg = loadImage('1/WALK/WALK.png'); // 載入 WALK 圖片
-  runImg = loadImage('1/RUN/RUN.png');    // 載入 RUN 圖片
-  jumpImg = loadImage('1/JUMP/JUMP.png'); // 載入 JUMP 圖片
+// loadImg() 載入單張圖片，並記錄成功或失敗
+function loadImg(path) {
+  totalToLoad++;                                     // 要載入的總數加 1
+  return loadImage(
+    path,
+    () => { loadedCount++; },                        // 成功：已處理數加 1
+    () => { missing.push(path); loadedCount++; }     // 失敗：記下路徑，已處理數也加 1
+  );
+}
+
+// loadAll() 載入所有圖片
+// 路徑對應 GitHub 上實際的檔案位置：1/STOP.png、1/0.png ...
+function loadAll() {
+  stopImg = loadImg('1/STOP.png'); // 載入 STOP 圖片
+  walkImg = loadImg('1/WALK.png'); // 載入 WALK 圖片
+  runImg  = loadImg('1/RUN.png');  // 載入 RUN 圖片
+  jumpImg = loadImg('1/JUMP.png'); // 載入 JUMP 圖片
   // 用迴圈依序載入滑壘的 0.png ~ 4.png
   for (let i = 0; i < SLIDE_COUNT; i++) {
-    slideImgs.push(loadImage('1/Slide base/' + i + '.png')); // 放進陣列
+    slideImgs.push(loadImg('1/' + i + '.png')); // 放進陣列
   }
 }
 
@@ -73,6 +89,7 @@ function setup() {
   groundY = height - GROUND_MARGIN;        // 地面位置：靠近畫面下方
   imageMode(CENTER);                       // 圖片以中心點作為繪製基準
   textFont('sans-serif');                  // 文字使用系統無襯線字型（可顯示中文）
+  loadAll();                               // 開始載入圖片
   resetGame();                             // 初始化（或重新開始）遊戲
 }
 
@@ -115,6 +132,27 @@ function keyPressed() {
 
 // draw() 會不斷重複執行，每秒約 60 次
 function draw() {
+  // ----- 0. 圖片還沒載入完：顯示載入中 -----
+  if (loadedCount < totalToLoad) {
+    background('#e3d5ca');
+    fill('#3e2723'); noStroke();
+    textAlign(CENTER, CENTER); textSize(28);
+    text('載入中… ' + loadedCount + ' / ' + totalToLoad, width / 2, height / 2);
+    return;
+  }
+  // ----- 0. 有圖片載入失敗：把缺少的檔案列出來 -----
+  if (missing.length > 0) {
+    background('#fff3f0');
+    fill('#c62828'); noStroke();
+    textAlign(LEFT, TOP); textSize(24);
+    text('以下圖片找不到，請檢查路徑、大小寫與資料夾名稱：', 40, 40);
+    textSize(20);
+    for (let i = 0; i < missing.length; i++) {
+      text('✗ ' + missing[i], 40, 90 + i * 32);
+    }
+    return;
+  }
+
   // ----- 1. 讀取按鍵狀態 -----
   let right = keyIsDown(RIGHT_ARROW); // 是否按住右方向鍵
   let left = keyIsDown(LEFT_ARROW);   // 是否按住左方向鍵
